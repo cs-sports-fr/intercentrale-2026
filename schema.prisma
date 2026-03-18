@@ -1,0 +1,622 @@
+datasource db {
+  provider = "postgres"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider             = "prisma-client-py"
+  recursive_type_depth = 5
+}
+
+model Sport {
+  id               Int      @id @default(autoincrement())
+  imageLink        String   @default("http://toss-images.s3.eu-west-3.amazonaws.com/sports/foot.jpeg")
+  sport            String
+  teams            Team[]  
+  nbPlayersMin     Int      @default(1)
+  nbPlayersMax     Int      @default(300)
+  isCollective     Boolean  @default(true)
+  nbOfTeams        Int      @default(64)
+  admins           User[]
+
+  description     String   @default("Sport description")
+  description2    String   @default("Sport description 2")
+ 
+
+
+  // New fields
+  pointsperwin     Int      @default(0)
+  pointsperdraw    Int      @default(0)
+  pointsperdefeat  Int      @default(0) 
+
+
+  // New fields 
+  poolMatchLength  Int      @default(15)
+  startTimeSunday  DateTime @default(now())
+  pools            Pool[] 
+  matches          Match[]  @relation("SportMatches")
+  medals           Medal[] 
+  placesSaturday Place[] @relation("SportPlacesSaturday")
+  placesSunday   Place[] @relation("SportPlacesSunday")
+  swimmingEvents  SwimmingEvent[]
+
+  tiebreakerOrder  TiebreakerCriterion[] @default([HeadToHead, GoalsConceded, FairPlay, TournamentPoints, GoalsScored, GoalDifference,MatchesWon])
+
+  // Conditions de restauration par sport
+  // Petit déjeuner
+  defaultBreakfastTimeSaturday   String?  // Horaire par défaut pour le petit déjeuner samedi (ex: "08:00")
+  defaultBreakfastPlaceSaturdayId Int?    // Lieu par défaut pour le petit déjeuner samedi
+  defaultBreakfastPlaceSaturday  Place?   @relation("BreakfastPlaceSaturday", fields: [defaultBreakfastPlaceSaturdayId], references: [id])
+  defaultBreakfastTimeSunday     String?  // Horaire par défaut pour le petit déjeuner dimanche
+  defaultBreakfastPlaceSundayId  Int?    // Lieu par défaut pour le petit déjeuner dimanche
+  defaultBreakfastPlaceSunday    Place?   @relation("BreakfastPlaceSunday", fields: [defaultBreakfastPlaceSundayId], references: [id])
+  
+  // Déjeuner
+  defaultLunchTimeSaturday        String?  // Horaire fixe pour le déjeuner samedi (ex: "13:00")
+  defaultLunchPlaceSaturdayId      Int?     // Lieu par défaut pour le déjeuner samedi
+  defaultLunchPlaceSaturday        Place?   @relation("LunchPlaceSaturday", fields: [defaultLunchPlaceSaturdayId], references: [id])
+  defaultLunchTimeSunday           String?  // Horaire fixe pour le déjeuner dimanche (ex: "13:00")
+  defaultLunchPlaceSundayId        Int?     // Lieu par défaut pour le déjeuner dimanche
+  defaultLunchPlaceSunday          Place?   @relation("LunchPlaceSunday", fields: [defaultLunchPlaceSundayId], references: [id])
+  
+  // Conditions pour les finalistes du dimanche
+  // Petit déjeuner finalistes
+  defaultBreakfastTimeSundayFinalist     String?  // Horaire pour les finalistes dimanche
+  defaultBreakfastPlaceSundayFinalistId Int?     // Lieu pour les finalistes dimanche
+  defaultBreakfastPlaceSundayFinalist    Place?   @relation("BreakfastPlaceSundayFinalist", fields: [defaultBreakfastPlaceSundayFinalistId], references: [id])
+  
+  // Déjeuner finalistes
+  defaultLunchTimeSundayFinalist         String?  // Horaire fixe pour les finalistes dimanche (ex: "14:00")
+  defaultLunchPlaceSundayFinalistId      Int?     // Lieu pour les finalistes dimanche
+  defaultLunchPlaceSundayFinalist        Place?   @relation("LunchPlaceSundayFinalist", fields: [defaultLunchPlaceSundayFinalistId], references: [id])
+}
+
+enum TiebreakerCriterion {
+  TournamentPoints
+  GoalDifference
+  GoalsScored
+  GoalsConceded
+  HeadToHead
+  FairPlay
+  MatchesWon
+}
+
+enum TeamStatus {
+    Incomplete
+    Waiting
+    Awaitingauthorization
+    PrincipalList
+    Validated
+}
+
+model Team {
+  id                 Int           @id @default(autoincrement())
+  name               String
+  participants       Participant[]
+  status             TeamStatus
+  createdAt          DateTime      @default(now())
+  sportId            Int
+  sport              Sport         @relation(fields: [sportId], references: [id])
+  teamAdminUserId    Int
+  admin              User          @relation(fields: [teamAdminUserId], references: [id])
+  schoolId           Int
+  school             School        @relation(fields: [schoolId], references: [id])
+  amountPaidInCents  Int           @default(0)
+  amountToPayInCents Int           @default(0)
+  Payment            Payment[]
+
+
+  level              String        @default("")
+
+  // New fields
+  matchesTeamOne     Match[]       @relation("TeamOne")
+  matchesTeamTwo     Match[]       @relation("TeamTwo")
+  winnerMatches      Match[]       @relation("TeamWinner")  // Inverse relation for winner
+  pools              Pool[]        @relation("TeamPools")   // Inverse relation for teams in Pool
+  tournamentPoints   Int           @default(0) 
+  poolmatcheswon     Int           @default(0) 
+  poolmatcheslost    Int           @default(0)
+  poolmatchesdraw    Int           @default(0)
+  goalsScored        Int           @default(0)  
+  goalsConceded      Int           @default(0) 
+  goalDifference     Int           @default(0)
+  isSelectedforKnockoutStage Boolean  @default(false)
+  isConvocationGenerated Boolean @default(false)
+  swimmingResults    SwimmingResult[]
+  swimmingRelayResults SwimmingRelayResult[]
+}
+
+enum EnumUserStatus {
+    UserStatus
+    AdminStatus
+    SuperAdminStatus
+    RespoDelegStatus
+}
+
+enum Gender {
+    F
+    M
+    preferNotToSay
+}
+
+enum ClassementTennis {
+    NC
+    C40
+    C305
+    C304
+    C303
+    C302
+    C301
+    C30
+    C155
+    C154
+    C153
+    C152
+    C151
+    C15
+    C56
+    C46
+    C36
+    C26
+    C16
+    C0
+}
+
+enum WeightCategory {
+  // Boxe Homme
+  BoxeH_48kg
+  BoxeH_51kg
+  BoxeH_54kg
+  BoxeH_57kg
+  BoxeH_60kg
+  BoxeH_64kg
+  BoxeH_69kg
+  BoxeH_75kg
+  BoxeH_81kg
+  BoxeH_91kg
+  BoxeH_Plus91kg
+  // Boxe Femme
+  BoxeF_48kg
+  BoxeF_51kg
+  BoxeF_54kg
+  BoxeF_57kg
+  BoxeF_60kg
+  BoxeF_64kg
+  BoxeF_69kg
+  BoxeF_75kg
+  BoxeF_Plus75kg
+  // Judo Homme
+  JudoH_60kg
+  JudoH_66kg
+  JudoH_73kg
+  JudoH_81kg
+  JudoH_90kg
+  JudoH_100kg
+  JudoH_Plus100kg
+  // Judo Femme
+  JudoF_48kg
+  JudoF_52kg
+  JudoF_57kg
+  JudoF_63kg
+  JudoF_70kg
+  JudoF_78kg
+  JudoF_Plus78kg
+}
+
+enum ArmeEscrime {
+    Sabre
+    Epee
+    Fleuret
+}
+
+model User {
+    id           Int            @id @default(autoincrement())
+    email        String         @unique //TODO: add email validation
+    password     String
+    firstname    String
+    lastname     String
+    mobile       String
+    teams        Team[]
+    schoolId     Int
+    school       School         @relation(fields: [schoolId], references: [id])
+    status       EnumUserStatus @default(UserStatus)
+    sportAdminId Int?
+    sportAdmin   Sport?         @relation(fields: [sportAdminId], references: [id])
+    Payment      Payment[]
+}
+
+model Place {
+  id          Int          @id @default(autoincrement())
+  name        String
+  latitude    Float
+  longitude   Float
+  description String?
+  Type         PlaceType    @default(Logement)  
+  sportSaturdayId Int?     
+  sportSaturday   Sport?   @relation("SportPlacesSaturday", fields: [sportSaturdayId], references: [id])
+  sportSundayId   Int?     
+  sportSunday     Sport?   @relation("SportPlacesSunday", fields: [sportSundayId], references: [id])  
+  
+  
+  numberOfFields   Int      @default(2)
+  startTime        DateTime @default (now())
+  startTimeAfternoon        DateTime @default (now())
+  startTimeSunday  DateTime @default(now())
+
+  // Relations avec Participant
+  lieutenteParticipants         Participant[] @relation("LieuEntente")
+  petitDejSamediParticipants    Participant[] @relation("PetitDejSamedi")
+  dejSamediParticipants         Participant[] @relation("DejSamedi")
+  dinerSamediParticipants       Participant[] @relation("DinerSamedi")
+  petitDejDimancheParticipants  Participant[] @relation("PetitDejDimanche")
+  dejDimancheParticipants       Participant[] @relation("DejDimanche")
+  pools  Pool[]
+  matches Match[]
+
+  // Relations avec nourriture
+
+  isBreakfast   Boolean @default(false)
+  isLunch       Boolean @default(false)
+  isDinner      Boolean @default(false)
+
+  // Relations avec Sport pour les lieux par défaut
+  defaultBreakfastPlaceSaturdaySports Sport[] @relation("BreakfastPlaceSaturday")
+  defaultBreakfastPlaceSundaySports   Sport[] @relation("BreakfastPlaceSunday")
+  defaultBreakfastPlaceSundayFinalistSports Sport[] @relation("BreakfastPlaceSundayFinalist")
+  defaultLunchPlaceSaturdaySports     Sport[] @relation("LunchPlaceSaturday")
+  defaultLunchPlaceSundaySports        Sport[] @relation("LunchPlaceSunday")
+  defaultLunchPlaceSundayFinalistSports Sport[] @relation("LunchPlaceSundayFinalist")
+  
+  // Relations avec School pour les dîners
+  defaultDinnerPlaceSchools            School[] @relation("SchoolDinnerPlace")
+
+  }
+
+model Participant {
+  id                Int               @id @default(autoincrement())
+  gender            Gender
+  firstname         String
+  lastname          String
+  email             String            @unique
+  mobile            String            @default("0656563425")
+  password          String            @default("230803")
+  status            EnumUserStatus    @default(UserStatus)
+  dateOfBirth       DateTime
+  charteIsValidated Boolean
+  chartePassword    String
+  createdAt         DateTime          @default(now())
+  isCaptain         Boolean
+  licenceID         String
+  packId            Int
+  pack              Pack              @relation(fields: [packId], references: [id])
+  schoolId          Int
+  school            School            @relation(fields: [schoolId], references: [id])
+  teamId            Int
+  team              Team              @relation(fields: [teamId], references: [id])
+  products          Product[]         @relation()
+  isVegan           Boolean           @default(false)
+  hasAllergies      Boolean           @default(false)
+  allergies         String?
+  certificateLink   String?
+  charteEmailSent   Boolean           @default(false)
+  certificateOK     Boolean           @default(false)
+  weight            Float?
+  mailHebergeur     String?
+  logementRezOk     Boolean           @default(false)
+  cautionOK         Boolean           @default(false)  
+  classementTennis  ClassementTennis?
+  classementTT      Float?
+  armeVoeu1         ArmeEscrime?
+  armeVoeu2         ArmeEscrime?
+  armeVoeu3         ArmeEscrime?
+
+  // Relations avec Place
+  lieutente         Place?            @relation("LieuEntente", fields: [lieutenteId], references: [id])
+  lieutenteId       Int?              // Foreign key to Place model
+  lieupetitdejsamedi Place?           @relation("PetitDejSamedi", fields: [lieupetitdejsamediId], references: [id])
+  lieupetitdejsamediId Int?           // Foreign key to Place model
+  lieudejsamedi     Place?            @relation("DejSamedi", fields: [lieudejsamediId], references: [id])
+  lieudejsamediId   Int?              // Foreign key to Place model
+  lieudinersamedi   Place?            @relation("DinerSamedi", fields: [lieudinersamediId], references: [id])
+  lieudinersamediId Int?              // Foreign key to Place model
+  lieupetitdejdimanche Place?         @relation("PetitDejDimanche", fields: [lieupetitdejdimancheId], references: [id])
+  lieupetitdejdimancheId Int?         // Foreign key to Place model
+  lieudejdimanche   Place?            @relation("DejDimanche", fields: [lieudejdimancheId], references: [id])
+  lieudejdimancheId Int?              // Foreign key to Place model
+
+  // Heures repas
+  heurepetitdejsamedi   String?
+  heuredejsamedi        String?
+  heuredinersamedi      String? 
+  heurepetitdejdimanche String?
+  heuredejdimanche      String?  
+
+  // Heure Transport
+  navettesamedialler      String?
+  navettesamediretour     String?
+  navettedimanchealler    String?
+  navettedimancheretour   String? 
+
+  ///Tente
+  tentPlanId  Int?                      // FK nullable
+  tentPlan    TentPlan? @relation(fields: [tentPlanId], references: [id])
+
+  //Convocation
+  convocationLink     String?
+
+  //10k
+
+  raceTimeSeconds   Float?     
+
+  //Matchs favoris
+  likedMatches  Match[] 
+ 
+  //Catégorie de poids (boxe et judo)
+  weightCategory  WeightCategory?
+
+  //Résultats natation
+  swimmingResults SwimmingResult[]
+
+  //Choix des épreuves de natation lors de l'inscription
+  swimming50mEventId  Int?              // ID de l'épreuve 50m choisie
+  swimming50mEvent    SwimmingEvent?    @relation("Participant50mChoice", fields: [swimming50mEventId], references: [id])
+  swimming100mEventId Int?              // ID de l'épreuve 100m choisie
+  swimming100mEvent   SwimmingEvent?    @relation("Participant100mChoice", fields: [swimming100mEventId], references: [id])
+
+}
+
+model Pool {
+  id           Int      @id @default(autoincrement())
+  name         String
+  sportId      Int
+  isMorning          Boolean       @default(false)
+  PlaceId    Int?
+  Place      Place?    @relation(fields: [PlaceId], references: [id])
+  sport        Sport     @relation(fields: [sportId], references: [id])
+  teams        Team[]    @relation("TeamPools")  // Update relation name here
+  weightCategory  WeightCategory?  // Pour identifier la catégorie de poids (boxe/judo)
+}
+
+
+
+model Match {
+  id              Int       @id @default(autoincrement())
+  phase           PhaseType
+  teamOneId       Int?
+  teamOne         Team?     @relation("TeamOne", fields: [teamOneId], references: [id])
+  teamTwoId       Int?
+  teamTwo         Team?     @relation("TeamTwo", fields: [teamTwoId], references: [id])
+  teamOneSource  String?  
+  teamTwoSource  String?  
+  scoreTeamOne    Int?
+  scoreTeamTwo    Int?
+  matchTime       DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  winnerId        Int?
+  winner          Team?     @relation("TeamWinner", fields: [winnerId], references: [id])
+  isScheduled     Boolean   @default(true)
+  hasStarted      Boolean   @default(false)
+  hasEnded        Boolean   @default(false)
+  field           Int
+  placeId         Int?
+  matchDuration   Int?
+  numberOfPeriods Int?      // Nombre total de périodes (ex: 2 mi-temps, 4 quarts)
+  currentPeriod   Int?      // Période en cours, mise à jour pendant le match
+  place           Place?    @relation(fields: [placeId], references: [id])  
+  sportId         Int
+  sport           Sport     @relation("SportMatches", fields: [sportId], references: [id])
+  likedByParticipants Participant[] 
+  
+
+}
+
+enum PlaceType {
+  Logement 
+  Tournoi
+  VT
+  RestaurationSoir
+  Restau
+  Acti
+  ArretBus
+  RestaurationMidi
+}
+
+enum PhaseType {
+  Roundof64
+  Roundof32
+  Roundof16
+  GroupStage
+  QuarterFinal
+  SemiFinal
+  ThirdPlace
+  Final
+  Competition
+}
+
+model School {
+  id           Int           @id @default(autoincrement())
+  name         String
+  isInIDF      Boolean       @default(false)
+  isDeleg      Boolean       @default(false)
+  longitude    Float?
+  latitude     Float?
+  isCautionPaid Boolean @default(false)
+  isPaid        Boolean @default(false)
+  contact      String? 
+  users        User[]
+  participants Participant[]
+  teams        Team[]
+  pictureLink  String?
+  medals      Medal[]  
+  
+  // Conditions de restauration par école (pour les dîners)
+  defaultDinnerTime              String?  // Horaire par défaut pour le dîner (ex: "19:00")
+  defaultDinnerPlaceId            Int?     // Lieu par défaut pour le dîner
+  defaultDinnerPlace               Place?   @relation("SchoolDinnerPlace", fields: [defaultDinnerPlaceId], references: [id])
+}
+
+model Pack {
+  id             Int           @id @default(autoincrement())
+  name           String
+  participants   Participant[]
+  priceInCents   Int           @default(0)
+  isAllowedInIDF Boolean       @default(true)
+  isBreakfastIncluded  Boolean  @default(false)
+  isLunchIncluded      Boolean  @default(false)
+  isDinnerIncluded     Boolean  @default(false)
+}
+
+model Product {
+  id           Int           @id @default(autoincrement())
+  name         String
+  priceInCents Int
+  participants Participant[]
+  pictureLink  String
+}
+
+enum mailClient {
+    SES
+    MailGun
+}
+
+model GeneralConfig {
+    id                       Int        @id @default(autoincrement())
+    editionYear              Int
+    isRegistrationOpen       Boolean
+    isPaymentOpen            Boolean
+    canSendEmails            Boolean    @default(true)
+    expectedRegistrationDate DateTime
+    mailClient               mailClient @default(SES)
+}
+
+enum PaymentStatus {
+    Pending
+    Paid
+    Failed
+    Canceled
+    Forged
+    Expired
+}
+
+model Payment {
+  id            Int           @id @default(autoincrement())
+  amountInCents Int
+  createdAt     DateTime      @default(now())
+  userId        Int
+  user          User          @relation(fields: [userId], references: [id])
+  teamId        Int
+  team          Team          @relation(fields: [teamId], references: [id])
+  paymentStatus PaymentStatus
+  requestId     String?
+  requestUuid   String?
+}
+
+
+model Medal {
+  id          Int      @id @default(autoincrement())
+  type        MedalType   
+  schoolId    Int
+  school      School   @relation(fields: [schoolId], references: [id])
+  sportId     Int
+  sport       Sport    @relation(fields: [sportId], references: [id])
+}
+
+
+enum MedalType {
+  Gold
+  Silver
+  Bronze
+}
+
+model TentPlan {
+  id           Int      @id @default(autoincrement())
+  row          String
+  section      String
+  tent_number  Int
+  capacity     Int
+  gender       String
+  is_custom    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  occupation   Int      @default(0)
+  participants Participant[] 
+}
+
+// ==================== MODÈLES POUR LA NATATION ====================
+
+enum SwimmingEventType {
+  Relais4x50mNageLibre
+  Relais4x50m4Nages
+  Epreuve100mPapillon
+  Epreuve100mDos
+  Epreuve100mBrasse
+  Epreuve100mNageLibre
+  Epreuve50mPapillon
+  Epreuve50mDos
+  Epreuve50mBrasse
+  Epreuve50mNageLibre
+}
+
+enum SwimmingEventDistance {
+  Distance50m
+  Distance100m
+  DistanceRelais
+}
+
+enum SwimmingStroke {
+  Papillon
+  Dos
+  Brasse
+  NageLibre
+  QuatreNages
+}
+
+model SwimmingEvent {
+  id              Int                @id @default(autoincrement())
+  eventType       SwimmingEventType
+  distance        SwimmingEventDistance
+  stroke          SwimmingStroke?
+  name            String              // Nom complet de l'épreuve (ex: "100m Papillon")
+  order           Int                 // Ordre dans le programme
+  sportId         Int
+  sport           Sport               @relation(fields: [sportId], references: [id])
+  isRelay         Boolean             @default(false)
+  referenceTimeMen    Float?          // Temps de référence pour les hommes (épreuves individuelles)
+  referenceTimeWomen  Float?          // Temps de référence pour les femmes (épreuves individuelles)
+  referenceTimeRelay  Float?          // Temps de référence pour les relais
+  results         SwimmingResult[]
+  relayResults    SwimmingRelayResult[]
+  createdAt       DateTime            @default(now())
+  
+  // Relations inverses pour les choix des participants
+  participants50m  Participant[]       @relation("Participant50mChoice")
+  participants100m Participant[]       @relation("Participant100mChoice")
+}
+
+model SwimmingResult {
+  id              Int            @id @default(autoincrement())
+  eventId         Int
+  event           SwimmingEvent  @relation(fields: [eventId], references: [id])
+  participantId   Int
+  participant     Participant    @relation(fields: [participantId], references: [id])
+  teamId          Int
+  team            Team           @relation(fields: [teamId], references: [id])
+  timeSeconds     Float           @default(0.0)  // Temps en secondes (0.0 = pas encore de temps)
+  points          Float?         // Points calculés (sera rempli plus tard)
+  rank            Int?           // Classement dans l'épreuve
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model SwimmingRelayResult {
+  id              Int            @id @default(autoincrement())
+  eventId         Int
+  event           SwimmingEvent  @relation(fields: [eventId], references: [id])
+  teamId          Int
+  team            Team           @relation(fields: [teamId], references: [id])
+  timeSeconds     Float           @default(0.0)  // Temps du relais en secondes (0.0 = pas encore de temps)
+  points          Float?         // Points calculés
+  rank            Int?           // Classement dans l'épreuve
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
